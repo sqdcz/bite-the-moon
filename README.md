@@ -93,7 +93,11 @@
 
 ## 运行
 
-### 方式一：桌面应用（推荐）
+### 方式零：直接下载免安装版
+
+去 [Releases](https://github.com/sqdcz/bite-the-moon/releases) 下 `BiteTheMoon-1.0.0-portable.exe`，双击即用 —— 不用装、不用联网、不用配环境。
+
+### 方式一：从源码跑桌面应用（推荐）
 
 ```bash
 npm install     # 首次需要，会下载 Electron
@@ -156,7 +160,9 @@ test-cake.html        月饼渲染调试页，可单独调参数
 vendor/three/         three.js 0.170.0 本地副本（build + 实际用到的 addons 三个目录）
 vendor/lunar.js       农历权威库（UMD，含闰月与大小月规则）
 vendor/fonts/         Cormorant Garamond 拉丁子集（三个字重共 68KB）
-electron/main.cjs     Electron 主进程：本地静态服务器 + 窗口
+electron/main.cjs     Electron 主进程：窗口、菜单、单实例、--selftest 截图模式
+electron/server.cjs   本地静态服务器（只监听 127.0.0.1，含目录穿越防护）
+electron/server.test.mjs  脱离 Electron 验证服务器（node electron/server.test.mjs）
 build/icon.svg|png    应用图标
 LICENSE               MIT（含第三方组件署名）
 ```
@@ -166,8 +172,11 @@ LICENSE               MIT（含第三方组件署名）
 ## 调试与自检
 
 ```bash
-node verify.mjs        # 月相数值 + 咬口几何面积校验
-node debug-light.mjs   # 亮面朝向判据
+npm test                          # 天文算法 + 静态服务器，一次跑完
+node verify.mjs                   # 月相数值 / 咬口面积 / 农历对照
+node debug-light.mjs              # 亮面朝向判据
+node electron/server.test.mjs     # 静态服务器：资源可达性与目录穿越防护
+npm run selftest                  # 启动桌面窗口并自动截图（需有桌面环境）
 ```
 
 `test-cake.html` 支持直接调参看渲染：

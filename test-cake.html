@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>月饼渲染自测</title>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.min.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+<style>
+  body { margin: 0; background: #12132a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import { createMooncakeScene } from './src/mooncake3d.js';
+
+// 可调参数示例：
+//   ?cut=1                切开看剖面
+//   &crust=0.5            皮馅比 5:5（厚皮）
+//   &yn=2&yw=14           两个蛋黄、单个 14g
+//   &fill=0x53291a        豆沙色断面
+//   &w=120                120g 大月饼
+//   &f=0.25               月相亮面 25%（咬掉大半）
+const q = new URLSearchParams(location.search);
+
+const scene = await createMooncakeScene(document.getElementById('c'));
+scene.resize();
+scene.setParams({
+  fraction: parseFloat(q.get('f') || '1'),
+  angle: parseFloat(q.get('a') || '0'),
+  cut: q.get('cut') === '1',
+  weight: parseFloat(q.get('w') || '75'),
+  crustRatio: parseFloat(q.get('crust') || '0.3'),
+  yolkOn: q.get('yolk') !== '0',
+  yolkPer: parseInt(q.get('yn') || '1', 10),
+  yolkWeight: parseFloat(q.get('yw') || '12'),
+  fillColor: parseInt(q.get('fill') || '8a4d22', 16),
+});
+
+// 定位渲染问题用：?hide=body 只留阴影，?hide=shadow 只留月饼
+const hide = (q.get('hide') || '').split(',').filter(Boolean);
+hide.forEach((name) => {
+  const part = scene.parts[name] && scene.parts[name]();
+  if (part) part.visible = false;
+});
+
+function loop() {
+  scene.render();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "name": "bite-the-moon",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "咬一口月亮 —— 月饼配方 × 月相工坊。改一个配方参数，手里的月饼就变一个样子，而它的缺口始终是今晚月亮的形状。",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "serve": "python -m http.server 8080",
+    "verify": "node verify.mjs",
+    "light": "node debug-light.mjs",
+    "test:server": "node electron/server.test.mjs",
+    "test": "npm run verify && npm run test:server",
+    "selftest": "electron . --selftest",
+    "dist": "electron-builder --win portable",
+    "dist:setup": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.sqdcz.bitethemoon",
+    "productName": "咬一口月亮",
+    "copyright": "MIT Licensed · 衰气的船只",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "src/**/*",
+      "vendor/**/*",
+      "assets/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "BiteTheMoon-${version}-portable.exe",
+      "requestExecutionLevel": "user"
+    },
+    "compression": "maximum"
+  }
+}

@@ -1,0 +1,20 @@
+# 依赖（Electron 二进制上百 MB，绝不入库）
+node_modules/
+
+# 打包产物：exe 体积大，走 GitHub Releases 分发，不进 git 历史
+dist/
+release/
+out/
+
+# 编辑器与系统
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+yarn-error.log*

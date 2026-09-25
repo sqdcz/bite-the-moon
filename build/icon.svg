@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="82%">
+      <stop offset="0" stop-color="#1c2456"/>
+      <stop offset="0.55" stop-color="#101634"/>
+      <stop offset="1" stop-color="#060815"/>
+    </radialGradient>
+    <radialGradient id="moonG" cx="36%" cy="32%" r="74%">
+      <stop offset="0" stop-color="#fff6de"/>
+      <stop offset="0.5" stop-color="#f2d493"/>
+      <stop offset="1" stop-color="#c9973f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0.4" stop-color="#ffdc96" stop-opacity="0.5"/>
+      <stop offset="0.72" stop-color="#ffdc96" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#ffdc96" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="bite">
+      <rect width="512" height="512" fill="#ffffff"/>
+      <circle cx="375" cy="137" r="140" fill="#000000"/>
+    </mask>
+    <clipPath id="round">
+      <rect width="512" height="512" rx="116" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#round)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+
+    <!-- 星点 -->
+    <g fill="#ffffff">
+      <circle cx="96" cy="118" r="3.4" opacity="0.85"/>
+      <circle cx="418" cy="330" r="2.6" opacity="0.6"/>
+      <circle cx="64" cy="352" r="2.2" opacity="0.5"/>
+      <circle cx="150" cy="430" r="3" opacity="0.7"/>
+      <circle cx="452" cy="96" r="2.4" opacity="0.55"/>
+      <circle cx="356" cy="470" r="2.8" opacity="0.6"/>
+      <circle cx="240" cy="56" r="2.2" opacity="0.5"/>
+    </g>
+
+    <!-- 月晕 -->
+    <circle cx="256" cy="262" r="212" fill="url(#glow)"/>
+
+    <!-- 月亮（右上被咬掉一口，缺口露出夜空） -->
+    <circle cx="256" cy="262" r="140" fill="url(#moonG)" mask="url(#bite)"/>
+
+    <!-- 咬口边缘的一点暗过渡，让缺口像被咬开而不是被裁掉 -->
+    <circle cx="375" cy="137" r="140" fill="none" stroke="#c9973f" stroke-width="3" opacity="0.55"/>
+  </g>
+
+  <!-- 金色外框 -->
+  <rect x="5" y="5" width="502" height="502" rx="112" fill="none" stroke="#e8b45a" stroke-width="5" opacity="0.4"/>
+</svg>

@@ -28,6 +28,7 @@
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeMooncakeTopTexture, makeShadowTexture, makeEnvTexture } from './texture.js';
+import { biteD } from './shape.js';
 
 const H = 0.72;                        // 月饼厚度（厚径比约 0.36，接近实物的 0.35~0.4）
 const R = 1.0;                         // 月饼半径
@@ -49,24 +50,8 @@ function crustThickness(ratio) {
   return (lo + hi) / 2;
 }
 
-// 亮面比例 → 咬痕圆的圆心距 D
-// 两圆等半径 R=1、圆心距 D 时的交集面积：A(D) = 2·acos(D/2) − (D/2)·√(4 − D²)
-// 要求 A = (1 − fraction)·π（咬掉的正是暗面那份），二分反解 D。
-//   D = 2 → 两圆外切，交集 0 → 满月，月饼完整
-//   D = 0 → 两圆重合，交集 π → 新月，月饼全没
-function biteD(fraction) {
-  const f = Math.min(1, Math.max(0, fraction));
-  const target = Math.PI * (1 - f);
-  let lo = 0;
-  let hi = 2;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    const a = 2 * Math.acos(mid / 2) - (mid / 2) * Math.sqrt(Math.max(0, 4 - mid * mid));
-    if (a > target) lo = mid; // 交集偏大 → 圆心距要更大
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
+// 咬口几何（双圆月牙）与 2D 版共用 shape.js 里的 biteD，
+// 保证两个渲染路径的形状完全一致。
 
 // 月饼截面 = 月饼圆 − 咬痕圆（两圆等半径，圆心距 D）
 //   交点横坐标 x0 = −D/2，纵坐标 ±√(1 − D²/4)

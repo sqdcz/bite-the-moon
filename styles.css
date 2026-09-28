@@ -659,3 +659,281 @@ button {
   .mast-side { display: none; }
   :root { --stage-h: clamp(280px, 42vh, 420px); }
 }
+
+/* ============================================================
+   Toy 版新增：视图切换 / 限时挑战 / 排行榜 / 分享动作
+   ============================================================ */
+
+/* ---------------- 顶部标签 ---------------- */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 30px 10px;
+  display: flex;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(7, 10, 28, 0.97) 55%, rgba(7, 10, 28, 0));
+}
+.tab {
+  appearance: none;
+  font-family: var(--kai);
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  padding: 7px 20px;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--moon-dim);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.tab:hover { color: var(--moon); }
+.tab.on {
+  background: linear-gradient(180deg, #e8b45a, #c98f47);
+  border-color: var(--gold);
+  color: #1c1206;
+  font-weight: 600;
+}
+
+.view { display: block; }
+
+/* ---------------- 限时挑战 ---------------- */
+.ch-hud {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 9px;
+}
+.ch-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 13px;
+  border: 1px solid var(--gold-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.ch-stat span { font-size: 12px; color: var(--moon-faint); }
+.ch-stat b {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold-hi);
+  line-height: 1;
+}
+.ch-stat i { font-style: normal; font-size: 11px; color: var(--moon-faint); }
+
+.ch-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.ch-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #c98f47, #ffd98a);
+  transition: width 0.12s linear;
+}
+
+.ch-stage {
+  position: relative;
+  height: clamp(320px, 48vh, 480px);
+  margin: 14px 0;
+  border: 1px solid var(--gold-line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: radial-gradient(62% 58% at 50% 26%, rgba(255, 216, 150, 0.09), rgba(255, 255, 255, 0.015));
+}
+.ch-stage canvas { display: block; width: 100%; height: 100%; }
+
+.ch-panel {
+  padding: 14px 17px 14px;
+  border: 1px solid var(--gold-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.ch-slider-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--moon-dim);
+}
+.ch-tol { color: rgba(232, 180, 90, 0.75); }
+.ch-panel .primary { margin-top: 12px; }
+
+.ch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 7, 18, 0.84);
+}
+.ch-overlay-card {
+  width: min(430px, 100%);
+  padding: 26px 24px 22px;
+  border: 1px solid var(--gold-line);
+  border-radius: 8px;
+  background: linear-gradient(160deg, #151c40, #0c1026);
+  box-shadow: 0 26px 66px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+.ch-overlay-card h3 {
+  margin: 0 0 12px;
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--gold-hi);
+  letter-spacing: 0.08em;
+}
+.ch-overlay-card p {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--moon-dim);
+}
+.ch-ov-facts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.ch-fact {
+  padding: 10px 8px;
+  border: 1px solid var(--gold-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.ch-fact span { display: block; font-size: 11.5px; color: var(--moon-faint); }
+.ch-fact b { font-family: var(--display); font-size: 24px; color: var(--gold-hi); }
+
+/* ---------------- 排行榜 ---------------- */
+.seg {
+  display: flex;
+  margin: 12px 0;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seg-item {
+  flex: 1;
+  appearance: none;
+  border: 0;
+  padding: 8px 0;
+  background: transparent;
+  color: var(--moon-dim);
+  font-family: var(--kai);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.seg-item.on { background: rgba(232, 180, 90, 0.9); color: #1c1206; font-weight: 600; }
+
+.my-rank {
+  padding: 10px 14px;
+  border: 1px dashed var(--gold-line);
+  border-radius: 3px;
+  font-size: 13px;
+  color: var(--moon-dim);
+}
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+.rank-row {
+  display: grid;
+  grid-template-columns: 44px 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 13px;
+  border: 1px solid var(--gold-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.rank-row.me {
+  border-color: rgba(232, 180, 90, 0.75);
+  background: rgba(232, 180, 90, 0.12);
+}
+.rank-no {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--gold-hi);
+  text-align: center;
+}
+.rank-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+.rank-name {
+  font-size: 14px;
+  color: var(--moon);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rank-score {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--gold-hi);
+}
+
+/* ---------------- 分享动作 ---------------- */
+.row-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.row-btns .ghost { flex: 1; padding-left: 0; padding-right: 0; }
+.qr-box { margin-top: 14px; text-align: center; }
+.qr-box img {
+  width: 168px;
+  height: 168px;
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+}
+.qr-box p { margin: 8px 0 0; font-size: 12px; color: var(--moon-faint); }
+
+.env-note {
+  max-width: 1240px;
+  margin: 20px auto 0;
+  padding: 0 30px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--moon-faint);
+}
+.muted { color: var(--moon-faint); }
+.muted.small { font-size: 12px; margin-top: 10px; }
+
+/* ---------------- 移动端（Toy 主要在 App 内跑） ---------------- */
+@media (max-width: 760px) {
+  .masthead { padding: 22px 16px 12px; }
+  .masthead h1 { font-size: 34px; }
+  .masthead .dek { font-size: 13px; }
+  .tabs { padding: 10px 16px 8px; gap: 6px; }
+  .tab { padding: 7px 15px; font-size: 13px; }
+  .layout { padding: 14px 16px 32px; gap: 20px; }
+  .foot { padding: 18px 16px 26px; }
+  .env-note { padding: 0 16px; }
+
+  .ch-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ch-stat b { font-size: 20px; }
+  .ch-stage { height: clamp(280px, 40vh, 400px); }
+  .rank-row { grid-template-columns: 34px 32px minmax(0, 1fr) auto; gap: 9px; padding: 8px 10px; }
+  .rank-avatar { width: 30px; height: 30px; }
+  .rank-score { font-size: 17px; }
+}

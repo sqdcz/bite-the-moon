@@ -214,5 +214,8 @@ export function buildCard(o) {
 
   drawSeal(ctx, 862, 1300, 92, '中秋');
 
-  return c.toDataURL('image/png');
+  // 用 JPEG 而不是 PNG：1080×1440 的 PNG 动辄 2-4MB，base64 之后会顶到
+  // SDK 的 5MB 上限附近，保存慢、占内存；JPEG 只有它的零头，画质看不出差别。
+  // 卡片是实心深色背景，没有透明区域需要保留。
+  return c.toDataURL('image/jpeg', 0.92);
 }

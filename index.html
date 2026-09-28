@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>咬一口月亮 · 月饼配方 × 月相工坊</title>
 <link rel="stylesheet" href="./styles.css" />
 <!-- three 与农历库都在 vendor/ 本地，不依赖任何 CDN，断网也能用 -->
@@ -16,183 +16,269 @@
 </script>
 <!-- lunar-javascript 是 UMD，用普通 script 加载后挂到 window（Solar / Lunar） -->
 <script src="./vendor/lunar.js"></script>
+<!-- B站 Toy SDK：加载失败（如本地开发、外网）不影响功能，能力会自动降级 -->
+<script defer src="//s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js"></script>
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
 
 <header class="masthead">
   <div class="mast-main">
-    <p class="kicker">MID-AUTUMN&nbsp;&nbsp;·&nbsp;&nbsp;丙午年</p>
+    <p class="kicker">MID-AUTUMN&nbsp;&nbsp;·&nbsp;&nbsp;<span id="ganZhi">丙午年</span></p>
     <h1>咬一口月亮</h1>
     <p class="dek">改一个配方参数，手里的月饼就变一个样子 —— 而它的缺口，始终是今晚月亮的形状</p>
   </div>
   <div class="mast-side"><span class="seal">中秋</span></div>
 </header>
 
+<!-- ══ 视图切换 ══ -->
+<nav class="tabs" id="tabs" role="tablist">
+  <button type="button" class="tab on" data-view="moon" role="tab">赏月</button>
+  <button type="button" class="tab" data-view="challenge" role="tab">限时挑战</button>
+  <button type="button" class="tab" data-view="rank" role="tab">排行榜</button>
+</nav>
+
 <main class="layout">
 
-  <!-- ══ 上栏：月亮 ══ -->
-  <section class="block reveal" style="--d:.04s">
-    <div class="block-head">
-      <h2>天上的月亮</h2>
-      <span class="block-note" id="moonNote">月亮由太阳方向真实照亮</span>
-    </div>
-    <div class="stage stage-moon">
-      <div class="stage-halo" aria-hidden="true"></div>
-      <canvas id="moon3d"></canvas>
-      <span class="corner tl" aria-hidden="true"></span>
-      <span class="corner tr" aria-hidden="true"></span>
-      <span class="corner bl" aria-hidden="true"></span>
-      <span class="corner br" aria-hidden="true"></span>
-    </div>
-    <p id="hint3d" class="hint" hidden>3D 模块未能加载（通常是网络原因），已自动切换为 2D 月相渲染，功能不受影响。</p>
-    <div id="outPhase" class="readout"></div>
+  <!-- ══════════════════════════ 视图一：赏月 ══════════════════════════ -->
+  <div class="view" id="view-moon">
 
-    <div class="fullmoon-box">
-      <div class="fm-head">
-        <span class="fm-label">最圆时刻</span>
-        <span class="fm-count" id="fmCount">正在计算…</span>
+    <section class="block reveal" style="--d:.04s">
+      <div class="block-head">
+        <h2>天上的月亮</h2>
+        <span class="block-note" id="moonNote">月亮由太阳方向真实照亮</span>
       </div>
-      <div class="fm-chips">
-        <button type="button" class="fm-chip" id="fmPrev">← 上一次最圆</button>
-        <button type="button" class="fm-chip" id="fmNext">下一次最圆 →</button>
+      <div class="stage stage-moon">
+        <div class="stage-halo" aria-hidden="true"></div>
+        <canvas id="moon3d"></canvas>
+        <span class="corner tl" aria-hidden="true"></span>
+        <span class="corner tr" aria-hidden="true"></span>
+        <span class="corner bl" aria-hidden="true"></span>
+        <span class="corner br" aria-hidden="true"></span>
       </div>
-    </div>
+      <p id="hint3d" class="hint" hidden>3D 模块未能加载，已自动切换为 2D 月相渲染，功能不受影响。</p>
+      <div id="outPhase" class="readout"></div>
 
-    <div class="slider-box">
-      <div class="slider-head">
-        <label for="age">月龄 · 拖动即时间旅行</label>
-        <button id="btnNow" type="button" class="ghost">回到此刻</button>
-      </div>
-      <input type="range" id="age" min="0" max="29.53" step="0.01" value="14" />
-      <div class="slider-foot"><span>朔</span><span>上弦</span><span>望</span><span>下弦</span><span>朔</span></div>
-    </div>
-  </section>
-
-  <!-- ══ 下栏：月饼 + 配方 ══ -->
-  <section class="block reveal" style="--d:.12s">
-    <div class="cake-grid">
-      <div class="cake-left">
-        <div class="block-head">
-          <h2>手里的月饼</h2>
-          <label class="switch">
-            <input type="checkbox" id="cutOpen" />
-            <span class="track"><span class="knob"></span></span>
-            <span class="switch-label">切开一半看剖面</span>
-          </label>
+      <div class="fullmoon-box">
+        <div class="fm-head">
+          <span class="fm-label">最圆时刻</span>
+          <span class="fm-count" id="fmCount">正在计算…</span>
         </div>
-        <div class="stage stage-cake">
-          <canvas id="cake3d"></canvas>
-          <canvas id="cake2d"></canvas>
-          <span class="corner tl" aria-hidden="true"></span>
-          <span class="corner tr" aria-hidden="true"></span>
-          <span class="corner bl" aria-hidden="true"></span>
-          <span class="corner br" aria-hidden="true"></span>
+        <div class="fm-chips">
+          <button type="button" class="fm-chip" id="fmPrev">← 上一次最圆</button>
+          <button type="button" class="fm-chip" id="fmNext">下一次最圆 →</button>
         </div>
-        <p class="cake-note" id="cakeNote"></p>
       </div>
 
-      <aside class="cake-right">
-        <section class="card">
-          <h3>月饼配方</h3>
+      <div class="slider-box">
+        <div class="slider-head">
+          <label for="age">月龄 · 拖动即时间旅行</label>
+          <button id="btnNow" type="button" class="ghost">回到此刻</button>
+        </div>
+        <input type="range" id="age" min="0" max="29.53" step="0.01" value="14" />
+        <div class="slider-foot"><span>朔</span><span>上弦</span><span>望</span><span>下弦</span><span>朔</span></div>
+      </div>
+    </section>
 
-          <div class="grid2">
-            <div class="field">
-              <label for="weight">单个重量 (g)</label>
-              <input type="number" id="weight" value="75" min="30" max="200" step="5" />
-            </div>
-            <div class="field">
-              <label for="count">个数</label>
-              <input type="number" id="count" value="12" min="1" step="1" />
-            </div>
+    <section class="block reveal" style="--d:.12s">
+      <div class="cake-grid">
+        <div class="cake-left">
+          <div class="block-head">
+            <h2>手里的月饼</h2>
+            <label class="switch">
+              <input type="checkbox" id="cutOpen" />
+              <span class="track"><span class="knob"></span></span>
+              <span class="switch-label">切开一半看剖面</span>
+            </label>
           </div>
-
-          <div class="field">
-            <label for="crust">皮馅比 <b id="crustTag" class="tag">3 : 7</b></label>
-            <input type="range" id="crust" min="0.15" max="0.55" step="0.05" value="0.3" />
-            <div class="slider-foot"><span>薄皮大馅</span><span>厚皮好包</span></div>
+          <div class="stage stage-cake">
+            <canvas id="cake3d"></canvas>
+            <canvas id="cake2d"></canvas>
+            <span class="corner tl" aria-hidden="true"></span>
+            <span class="corner tr" aria-hidden="true"></span>
+            <span class="corner bl" aria-hidden="true"></span>
+            <span class="corner br" aria-hidden="true"></span>
           </div>
+          <p class="cake-note" id="cakeNote"></p>
+        </div>
 
-          <div class="field">
-            <label>馅料（决定断面颜色）</label>
-            <div id="fillings" class="fillings"></div>
-            <div class="preset-row">
-              <button type="button" class="ghost chip" data-preset="莲蓉">莲蓉</button>
-              <button type="button" class="ghost chip" data-preset="豆沙">豆沙</button>
-              <button type="button" class="ghost chip" data-preset="枣泥">枣泥</button>
-              <button type="button" class="ghost chip" data-preset="五仁">五仁</button>
-            </div>
-            <button id="addFilling" type="button" class="ghost wide">+ 添加馅料</button>
-          </div>
+        <aside class="cake-right">
+          <section class="card">
+            <h3>月饼配方</h3>
 
-          <div class="field yolk">
-            <label class="check"><input type="checkbox" id="yolkOn" checked /> 包咸蛋黄</label>
             <div class="grid2">
               <div class="field">
-                <label for="yolkW">单个蛋黄 (g)</label>
-                <input type="number" id="yolkW" value="12" min="6" max="20" />
+                <label for="weight">单个重量 (g)</label>
+                <input type="number" id="weight" value="75" min="30" max="200" step="5" />
               </div>
               <div class="field">
-                <label for="yolkPer">每个放几个</label>
-                <input type="number" id="yolkPer" value="1" min="1" max="3" />
+                <label for="count">个数</label>
+                <input type="number" id="count" value="12" min="1" step="1" />
               </div>
             </div>
+
+            <div class="field">
+              <label for="crust">皮馅比 <b id="crustTag" class="tag">3 : 7</b></label>
+              <input type="range" id="crust" min="0.15" max="0.55" step="0.05" value="0.3" />
+              <div class="slider-foot"><span>薄皮大馅</span><span>厚皮好包</span></div>
+            </div>
+
+            <div class="field">
+              <label>馅料（决定断面颜色）</label>
+              <div id="fillings" class="fillings"></div>
+              <div class="preset-row">
+                <button type="button" class="ghost chip" data-preset="莲蓉">莲蓉</button>
+                <button type="button" class="ghost chip" data-preset="豆沙">豆沙</button>
+                <button type="button" class="ghost chip" data-preset="枣泥">枣泥</button>
+                <button type="button" class="ghost chip" data-preset="五仁">五仁</button>
+              </div>
+              <button id="addFilling" type="button" class="ghost wide">+ 添加馅料</button>
+            </div>
+
+            <div class="field yolk">
+              <label class="check"><input type="checkbox" id="yolkOn" checked /> 包咸蛋黄</label>
+              <div class="grid2">
+                <div class="field">
+                  <label for="yolkW">单个蛋黄 (g)</label>
+                  <input type="number" id="yolkW" value="12" min="6" max="20" />
+                </div>
+                <div class="field">
+                  <label for="yolkPer">每个放几个</label>
+                  <input type="number" id="yolkPer" value="1" min="1" max="3" />
+                </div>
+              </div>
+            </div>
+
+            <div id="outRecipe" class="result"></div>
+            <button id="btnList" type="button" class="ghost wide">复制购物清单</button>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="foot-grid">
+      <section class="card reveal" style="--d:.2s">
+        <h3>此刻 · 此地</h3>
+        <div class="field">
+          <label for="when">时间（已自动取本机时间）</label>
+          <input type="datetime-local" id="when" />
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="lat">纬度</label>
+            <input type="number" id="lat" step="0.001" />
           </div>
+          <div class="field">
+            <label for="lon">经度</label>
+            <input type="number" id="lon" step="0.001" />
+          </div>
+        </div>
+        <div class="loc-row">
+          <span id="locStatus" class="loc-status">正在定位…</span>
+          <button id="btnGeo" type="button" class="ghost">用我的位置</button>
+        </div>
+      </section>
 
-          <div id="outRecipe" class="result"></div>
-          <button id="btnList" type="button" class="ghost wide">复制购物清单</button>
-        </section>
-      </aside>
-    </div>
-  </section>
+      <section class="card reveal" style="--d:.26s">
+        <h3>今晚赏月</h3>
+        <div id="outMoon" class="result"></div>
+      </section>
 
-  <!-- ══ 底部三卡 ══ -->
-  <section class="foot-grid">
-    <section class="card reveal" style="--d:.2s">
-      <h3>此刻 · 此地</h3>
-      <div class="field">
-        <label for="when">时间（已自动取本机时间）</label>
-        <input type="datetime-local" id="when" />
-      </div>
-      <div class="grid2">
+      <section class="card reveal" style="--d:.32s">
+        <h3>分享</h3>
         <div class="field">
-          <label for="lat">纬度</label>
-          <input type="number" id="lat" step="0.001" />
+          <label for="blessing">祝福语</label>
+          <select id="blessing"></select>
         </div>
         <div class="field">
-          <label for="lon">经度</label>
-          <input type="number" id="lon" step="0.001" />
+          <label for="author">署名</label>
+          <input type="text" id="author" placeholder="你的名字（可留空）" />
+        </div>
+        <button id="btnExport" type="button" class="primary wide">生成团圆卡</button>
+        <div class="row-btns">
+          <button id="btnShare" type="button" class="ghost">分享</button>
+          <button id="btnQr" type="button" class="ghost">二维码</button>
+          <button id="btnImmersive" type="button" class="ghost" hidden>沉浸看月</button>
+        </div>
+        <div id="qrBox" class="qr-box" hidden>
+          <img id="qrImg" alt="二维码" />
+          <p>扫码在手机上打开</p>
+        </div>
+      </section>
+    </section>
+
+    <p class="env-note" id="envNote" hidden></p>
+  </div>
+
+  <!-- ══════════════════════════ 视图二：限时挑战 ══════════════════════════ -->
+  <div class="view" id="view-challenge" hidden>
+    <section class="block">
+      <div class="block-head">
+        <h2>限时咬月挑战</h2>
+        <span class="block-note" id="chBestNote">看看你能连对几轮</span>
+      </div>
+
+      <div class="ch-hud">
+        <div class="ch-stat"><span>剩余</span><b id="chTime">60.0</b><i>秒</i></div>
+        <div class="ch-stat"><span>得分</span><b id="chScore">0</b></div>
+        <div class="ch-stat"><span>连击</span><b id="chCombo">0</b></div>
+        <div class="ch-stat"><span>已答</span><b id="chRound">0</b><i>轮</i></div>
+      </div>
+      <div class="ch-bar"><i id="chBar"></i></div>
+
+      <div class="ch-stage">
+        <canvas id="chCanvas"></canvas>
+      </div>
+
+      <div class="ch-panel">
+        <div class="ch-slider-head">
+          <span>把月饼咬成目标形状</span>
+          <span class="ch-tol" id="chTol">容差 ±1.05 天</span>
+        </div>
+        <input type="range" id="chSlider" min="0" max="29.53" step="0.01" value="14.77" />
+        <div class="slider-foot"><span>朔</span><span>上弦</span><span>望</span><span>下弦</span><span>朔</span></div>
+        <button type="button" class="primary wide" id="chGo">咬下去</button>
+      </div>
+
+      <div class="ch-overlay" id="chOverlay">
+        <div class="ch-overlay-card">
+          <h3 id="chOvTitle">限时咬月挑战</h3>
+          <p id="chOvText">拖动滑块，把月饼咬成目标月相的形状，然后点「咬下去」。60 秒内尽量多答对 —— 连对有加成，咬错要扣时间。</p>
+          <div class="ch-ov-facts" id="chOvFacts" hidden></div>
+          <p class="muted" id="chOvHint"></p>
+          <button type="button" class="primary wide" id="chStart">开始挑战</button>
+          <button type="button" class="ghost wide" id="chShareScore" hidden>分享成绩</button>
         </div>
       </div>
-      <div class="loc-row">
-        <span id="locStatus" class="loc-status">正在定位…</span>
-        <button id="btnGeo" type="button" class="ghost">用我的位置</button>
-      </div>
     </section>
+  </div>
 
-    <section class="card reveal" style="--d:.26s">
-      <h3>今晚赏月</h3>
-      <div id="outMoon" class="result"></div>
-    </section>
+  <!-- ══════════════════════════ 视图三：排行榜 ══════════════════════════ -->
+  <div class="view" id="view-rank" hidden>
+    <section class="block">
+      <div class="block-head">
+        <h2>挑战排行榜</h2>
+        <span class="block-note" id="rankNote">按「限时咬月挑战」的最高分排名</span>
+      </div>
 
-    <section class="card reveal" style="--d:.32s">
-      <h3>分享</h3>
-      <div class="field">
-        <label for="blessing">祝福语</label>
-        <select id="blessing"></select>
+      <div class="seg" id="rankPeriod">
+        <button type="button" class="seg-item on" data-p="all">总榜</button>
+        <button type="button" class="seg-item" data-p="month">月榜</button>
+        <button type="button" class="seg-item" data-p="week">周榜</button>
+        <button type="button" class="seg-item" data-p="day">日榜</button>
       </div>
-      <div class="field">
-        <label for="author">署名</label>
-        <input type="text" id="author" placeholder="你的名字（可留空）" />
-      </div>
-      <button id="btnExport" type="button" class="primary wide">生成团圆卡</button>
+
+      <div class="my-rank" id="myRank"></div>
+      <div class="rank-list" id="rankList"><p class="muted">正在读取榜单…</p></div>
+      <button type="button" class="ghost wide" id="rankRefresh">刷新榜单</button>
+      <p class="muted small">榜单按事件刷新，不会自动轮询 —— 想更新时点一下就好。</p>
     </section>
-  </section>
+  </div>
 
 </main>
 
 <footer class="foot">
-  月相由太阳-地球-月亮的真实几何计算 · 位置与时间自动取自本机 · 月面为 NASA 实拍贴图（加载失败自动回落程序化生成）
+  月相由太阳-地球-月亮的真实几何计算 · 位置与时间自动取自本机 · 全部资源本地化，断网可用
 </footer>
 
 <script type="module" src="./src/main.js"></script>

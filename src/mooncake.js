@@ -1,29 +1,14 @@
 // mooncake.js —— Canvas 2D 绘制「被咬了一口的月饼」
-// 核心：月饼缺口与月相共用同一组参数（亮面比例 fraction + 亮面朝向 angle）
-// 终止线（明暗界线）是一个半椭圆，其短半轴 rx = R × |2f − 1|
-//   f > 0.5：椭圆向左鼓 → 剩下的比一半多（凸月般的“咬掉一小口”）
-//   f < 0.5：椭圆向右鼓 → 剩下的比一半少（月牙般的“只剩一角”）
+// 核心：月饼缺口与月相共用同一组参数（亮面比例 fraction + 咬口朝向 angle）
+//
+// 轮廓几何统一由 shape.js 提供（**双圆月牙**模型），与 3D 版同源。
+// 早先这里用的是椭圆终止线模型（rx = R·|2f−1|），和 3D 形状对不上 —— 
+// 2D 只在 three 加载失败时兜底，平时看不出来，但挑战玩法要靠 2D 绘制，
+// 形状对不上就会让玩家看到的东西不可信。
 
-// 生成月饼轮廓路径（局部坐标，圆心在 0,0）
-export function mooncakePath(R, fraction) {
-  const f = Math.min(1, Math.max(0, fraction));
-  const rx = R * Math.abs(2 * f - 1);
-  const p = new Path2D();
-  // 外缘：右半圆，从顶点 (-R) 顺时针到底点 (+R)
-  p.arc(0, 0, R, -Math.PI / 2, Math.PI / 2, false);
-  if (rx < 0.01) {
-    // 上下弦：终止线退化成一条直线
-    p.lineTo(0, -R);
-  } else if (f > 0.5) {
-    // 剩下的比一半多：终止线向左鼓出
-    p.ellipse(0, 0, rx, R, 0, Math.PI / 2, Math.PI * 1.5, false);
-  } else {
-    // 剩下的比一半少：终止线向右鼓出，形成月牙
-    p.ellipse(0, 0, rx, R, 0, Math.PI / 2, -Math.PI / 2, true);
-  }
-  p.closePath();
-  return p;
-}
+import { mooncakePath } from './shape.js';
+
+export { mooncakePath };
 
 // 画一整块月饼：底盘阴影 + 缺口底 + 饼身 + 压花
 export function drawMooncake(ctx, cx, cy, R, fraction, angle, opts = {}) {

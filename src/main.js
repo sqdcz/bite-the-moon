@@ -19,6 +19,8 @@ import { calcRecipe, shoppingList } from './recipe.js';
 import { drawMooncake, drawMoon2D } from './mooncake.js';
 import { buildCard } from './card.js';
 import { detectByIP, requestPrecise, DEFAULT_LOC } from './geo.js';
+import * as toy from './toy.js';
+import { createChallenge } from './challenge.js';
 
 const SYNODIC = 29.530588;
 
@@ -88,6 +90,7 @@ const state = {
   cut: false,
   blessing: 0,
   author: '',
+  best: 0, // 挑战最高分（来自存档）
 };
 
 let scene = null;
@@ -551,14 +554,315 @@ async function exportCard() {
         author: state.author,
       },
     });
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `咬一口月亮-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.png`;
-    a.click();
+    // 交给适配层决定保存方式：App 内存进相册，其余环境走浏览器下载
+    const name = `咬一口月亮-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.jpg`;
+    const res = await toy.saveImage(dataUrl, name, '需要相册权限，把这张团圆卡保存下来');
+    if (!res.ok) {
+      btn.textContent = '保存失败，长按图片试试';
+      setTimeout(() => {
+        btn.textContent = '生成团圆卡';
+      }, 2400);
+      return;
+    }
+    btn.textContent = res.where === 'album' ? '已存入相册' : '已下载到本地';
+    setTimeout(() => {
+      btn.textContent = '生成团圆卡';
+    }, 2000);
   } finally {
     btn.disabled = false;
-    btn.textContent = '生成团圆卡';
   }
+}
+
+// ================================================================
+// Toy 版新增：视图切换 / 限时挑战 / 排行榜 / 分享 / 容器适配
+// ================================================================
+
+const VIEWS = ['moon', 'challenge', 'rank'];
+let activeView = 'moon';
+let ch = null; // 挑战实例
+let rankPeriod = 'all';
+
+const escapeHtml = (s) =>
+  String(s == null ? '' : s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
+
+/**
+ * 切换视图。注意：隐藏中的 canvas 量出来是 0 宽高，
+ * 切回来必须重新 resize，否则 3D 场景会按 0 尺寸重建、看着像坏了。
+ */
+function switchView(name) {
+  if (!VIEWS.includes(name)) return;
+  activeView = name;
+  VIEWS.forEach((v) => {
+    $('view-' + v).hidden = v !== name;
+  });
+  document.querySelectorAll('.tab').forEach((b) => {
+    b.classList.toggle('on', b.dataset.view === name);
+  });
+  requestAnimationFrame(() => {
+    if (name === 'moon') {
+      if (scene) scene.resize();
+      if (cakeScene) cakeScene.resize();
+      update({ keepNewMoon: true });
+    } else if (name === 'challenge') {
+      if (ch) ch.resize();
+    } else if (name === 'rank') {
+      loadRank();
+    }
+  });
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab').forEach((b) => {
+    b.addEventListener('click', () => switchView(b.dataset.view));
+  });
+}
+
+// ---------------------------------------------------------------- 限时挑战
+function initChallenge() {
+  ch = createChallenge($('chCanvas'), {
+    onTick: (s) => {
+      $('chTime').textContent = Math.max(0, s.timeLeft).toFixed(1);
+      $('chScore').textContent = String(s.score);
+      $('chCombo').textContent = String(s.combo);
+      $('chRound').textContent = String(s.round);
+      $('chBar').style.width = Math.max(0, Math.min(100, (s.timeLeft / 60) * 100)) + '%';
+      $('chTol').textContent = `容差 ±${s.tolerance.toFixed(2)} 天`;
+    },
+    onChange: (s) => {
+      $('chGo').disabled = s.phase !== 'playing';
+    },
+    onFinish: (result) => finishChallenge(result),
+  });
+
+  $('chSlider').addEventListener('input', () => {
+    ch.setGuess(Number($('chSlider').value));
+  });
+  $('chGo').addEventListener('click', () => ch.confirm());
+
+  $('chStart').addEventListener('click', () => {
+    $('chOverlay').hidden = true;
+    $('chOvFacts').hidden = true;
+    $('chOvHint').textContent = '';
+    $('chShareScore').hidden = true;
+    $('chSlider').value = '14.77';
+    ch.start();
+  });
+
+  $('chShareScore').addEventListener('click', async () => {
+    const btn = $('chShareScore');
+    const r = await toy.share('index.html');
+    btn.textContent = r.ok ? '已分享' : '当前环境不支持分享';
+    setTimeout(() => {
+      btn.textContent = '分享成绩';
+    }, 1800);
+  });
+}
+
+async function finishChallenge(result) {
+  $('chOvTitle').textContent =
+    result.score >= 900
+      ? '月亮就这么圆'
+      : result.score >= 450
+        ? '咬得不错'
+        : result.score >= 180
+          ? '有点手感了'
+          : '再来一局？';
+  $('chOvText').textContent = `答对 ${result.hits} / ${result.round} 轮，最高 ${result.bestCombo} 连击。`;
+
+  const facts = $('chOvFacts');
+  facts.innerHTML = `
+    <div class="ch-fact"><span>本局得分</span><b>${result.score}</b></div>
+    <div class="ch-fact"><span>准确率</span><b>${Math.round(result.accuracy * 100)}%</b></div>`;
+  facts.hidden = false;
+
+  // 存档：本地立刻落，云端延迟合并推送（官方建议按关键节点落盘、批量代替循环）
+  const save = await toy.loadSave();
+  const best = Math.max(save.challengeBest || 0, result.score);
+  state.best = best;
+  await toy.patchSave({
+    challengeBest: best,
+    challengePlays: (save.challengePlays || 0) + 1,
+  });
+  updateBestNote();
+
+  // 提交排行榜（只增不减且幂等，一局提交一次就够）
+  const hint = $('chOvHint');
+  const submitted = await toy.submitScore(1, result.score);
+  if (submitted) {
+    hint.textContent = `已提交 · 你的历史最高 ${submitted.score} 分`;
+  } else if (await toy.can('submitScore')) {
+    hint.textContent = '提交失败：可能需要登录，或正好撞上限流，过一会儿再试。';
+  } else {
+    hint.textContent = '当前环境没有排行榜能力，成绩已存在本机。';
+  }
+
+  $('chOverlay').hidden = false;
+  $('chStart').textContent = '再来一局';
+  $('chShareScore').hidden = !(await toy.can('share'));
+}
+
+function updateBestNote() {
+  $('chBestNote').textContent = state.best ? `本机最高分 ${state.best}` : '看看你能连对几轮';
+}
+
+// ---------------------------------------------------------------- 排行榜
+async function loadRank() {
+  const listEl = $('rankList');
+  const myEl = $('myRank');
+
+  if (!(await toy.can('getRankList'))) {
+    listEl.innerHTML = '<p class="muted">排行榜只在 B站 App 内可用；Web 端与本地环境读不到榜单。</p>';
+    myEl.textContent = '当前环境不支持排行榜';
+    return;
+  }
+
+  listEl.innerHTML = '<p class="muted">正在读取榜单…</p>';
+  const [list, mine] = await Promise.all([toy.rankList(1, rankPeriod, 50), toy.myRank(1, rankPeriod)]);
+
+  // 是否上榜必须看 ranked —— 分数允许是 0 或负数，拿分数判断会出错
+  if (mine && mine.ranked) {
+    myEl.innerHTML = `我：第 <b>${mine.rank}</b> 名 · ${mine.score} 分`;
+  } else if (mine) {
+    myEl.textContent = '我还没上榜 —— 去挑战里刷一局';
+  } else {
+    myEl.textContent = '读不到我的排名（可能未登录）';
+  }
+
+  if (!list || !list.length) {
+    listEl.innerHTML = '<p class="muted">这个周期还没有人上榜，你可以做第一个。</p>';
+    return;
+  }
+  const myRankNo = mine && mine.ranked ? mine.rank : -1;
+  listEl.innerHTML = list
+    .map(
+      (it) => `
+    <div class="rank-row${Number(it.rank) === myRankNo ? ' me' : ''}">
+      <div class="rank-no">${Number(it.rank) || 0}</div>
+      <img class="rank-avatar" src="${escapeHtml(it.avatar || '')}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+      <div class="rank-name">${escapeHtml(it.nickname || '匿名')}</div>
+      <div class="rank-score">${Number(it.score) || 0}</div>
+    </div>`
+    )
+    .join('');
+}
+
+function initRank() {
+  document.querySelectorAll('#rankPeriod .seg-item').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rankPeriod .seg-item').forEach((x) => x.classList.toggle('on', x === b));
+      rankPeriod = b.dataset.p;
+      loadRank();
+    });
+  });
+  $('rankRefresh').addEventListener('click', loadRank);
+}
+
+// ---------------------------------------------------------------- 分享动作
+function initShare() {
+  $('btnShare').addEventListener('click', async () => {
+    const btn = $('btnShare');
+    const r = await toy.share('index.html');
+    btn.textContent = r.ok && r.where === 'panel' ? '已唤起分享' : r.ok ? '链接已复制' : '当前环境不支持';
+    setTimeout(() => {
+      btn.textContent = '分享';
+    }, 1800);
+  });
+
+  $('btnQr').addEventListener('click', async () => {
+    const box = $('qrBox');
+    if (!box.hidden) {
+      box.hidden = true;
+      return;
+    }
+    const qr = await toy.qrCode({ size: 320 });
+    if (!qr) {
+      const btn = $('btnQr');
+      btn.textContent = '仅 App 内可用';
+      setTimeout(() => {
+        btn.textContent = '二维码';
+      }, 1800);
+      return;
+    }
+    $('qrImg').src = qr.base64 || qr.url;
+    box.hidden = false;
+  });
+}
+
+// ---------------------------------------------------------------- 容器与沉浸
+async function initImmersive() {
+  const btn = $('btnImmersive');
+  if (!(await toy.can('setContainerMode'))) return;
+  btn.hidden = false;
+
+  let immersive = false;
+  let pending = null;
+
+  // setContainerMode 的 Promise 只是「调用返回」，不是成功回执；
+  // 是否真的生效只能靠 onContainer 的状态变化来确认（官方明确要求这样用）。
+  toy.onContainer((cs) => {
+    if (!cs) return;
+    if (cs.changedFields && cs.changedFields.includes('immersive')) {
+      immersive = !!cs.immersive;
+      pending = null;
+      btn.textContent = immersive ? '退出沉浸' : '沉浸看月';
+    }
+    // 刘海屏与手势条：交给 body 的 padding，别让内容压在系统栏下面
+    if (cs.safeArea) {
+      document.body.style.paddingTop = cs.safeArea.top ? cs.safeArea.top + 'px' : '';
+      document.body.style.paddingBottom = cs.safeArea.bottom ? cs.safeArea.bottom + 'px' : '';
+    }
+  });
+
+  btn.addEventListener('click', async () => {
+    pending = !immersive;
+    btn.disabled = true;
+    const ok = await toy.setContainerMode({ immersive: pending });
+    btn.disabled = false;
+    if (!ok) {
+      pending = null;
+      btn.textContent = '此环境不支持沉浸';
+      setTimeout(() => {
+        btn.textContent = '沉浸看月';
+      }, 1800);
+    }
+  });
+}
+
+async function initEnvNote() {
+  const note = $('envNote');
+  if (toy.hasSdk()) {
+    const caps = [];
+    if (await toy.can('submitScore')) caps.push('排行榜');
+    if (await toy.can('saveImageToAlbum')) caps.push('保存到相册');
+    if (await toy.can('share')) caps.push('分享面板');
+    if (await toy.can('getQrCode')) caps.push('二维码');
+    if (await toy.can('setContainerMode')) caps.push('沉浸模式');
+    note.textContent = caps.length
+      ? `已接入 B站 Toy 能力：${caps.join(' / ')}`
+      : '检测到 Toy 环境，但当前容器没有开放这些能力（可能是旧版客户端）。';
+  } else {
+    note.textContent =
+      '当前不在 B站 Toy 环境：排行榜、保存到相册、分享面板、二维码、沉浸模式不可用；成绩与配方会存在本机，其余功能完全正常。';
+  }
+  note.hidden = false;
+}
+
+async function initToy() {
+  const ok = await toy.ready();
+  if (ok) {
+    const save = await toy.loadSave();
+    state.best = save.challengeBest || 0;
+  }
+  updateBestNote();
+  await initImmersive();
+  await initEnvNote();
+  // 页面被切走时把还没推的存档送上去
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) toy.flushSave();
+  });
 }
 
 // ---------------------------------------------------------------- 启动
@@ -587,6 +891,25 @@ function boot() {
   update();
   init3D();
   autoLocate();
+
+  // Toy 版新增
+  initTabs();
+  initChallenge();
+  initRank();
+  initShare();
+  initToy();
+
+  // ?view=challenge 直达某个视图 —— 分享挑战页时有用，也方便调试
+  // 再加 &auto=1 会直接开局（无需先点开始按钮）
+  const q = new URLSearchParams(location.search);
+  const v = q.get('view');
+  if (v && VIEWS.includes(v)) {
+    switchView(v);
+    if (v === 'challenge' && q.get('auto') === '1') {
+      // 等一帧，让视图从 hidden 变可见、canvas 量到真实尺寸后再开局
+      setTimeout(() => $('chStart').click(), 150);
+    }
+  }
 }
 
 boot();

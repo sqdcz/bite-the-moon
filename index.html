@@ -207,6 +207,8 @@
       </section>
     </section>
 
+    <section class="card creator-card" id="creatorCard" hidden></section>
+
     <p class="env-note" id="envNote" hidden></p>
   </div>
 
@@ -215,7 +217,10 @@
     <section class="block">
       <div class="block-head">
         <h2>限时咬月挑战</h2>
-        <span class="block-note" id="chBestNote">看看你能连对几轮</span>
+        <div class="head-tools">
+          <button type="button" class="ghost tiny" id="btnMute">音效 开</button>
+          <span class="block-note" id="chBestNote">看看你能连对几轮</span>
+        </div>
       </div>
 
       <div class="ch-hud">
@@ -230,6 +235,9 @@
         <canvas id="chCanvas"></canvas>
       </div>
 
+      <!-- 揭晓时显示这条月相科普 -->
+      <div class="ch-lore" id="chLore" hidden></div>
+
       <div class="ch-panel">
         <div class="ch-slider-head">
           <span>把月饼咬成目标形状</span>
@@ -243,11 +251,41 @@
       <div class="ch-overlay" id="chOverlay">
         <div class="ch-overlay-card">
           <h3 id="chOvTitle">限时咬月挑战</h3>
-          <p id="chOvText">拖动滑块，把月饼咬成目标月相的形状，然后点「咬下去」。60 秒内尽量多答对 —— 连对有加成，咬错要扣时间。</p>
+          <p id="chOvText">拖动滑块，把月饼咬成目标月相的形状，然后点「咬下去」。连对有加成，咬错要扣时间 —— 时间用完就结算。</p>
+
+          <div class="ch-setup" id="chSetup">
+            <div class="ch-setup-row">
+              <span class="ch-setup-label">难度</span>
+              <div class="seg small" id="chDiff">
+                <button type="button" class="seg-item" data-d="easy">轻松</button>
+                <button type="button" class="seg-item on" data-d="normal">标准</button>
+                <button type="button" class="seg-item" data-d="hard">大师</button>
+              </div>
+            </div>
+            <div class="ch-setup-row">
+              <span class="ch-setup-label">模式</span>
+              <div class="seg small" id="chMode">
+                <button type="button" class="seg-item on" data-m="endless">自由练习</button>
+                <button type="button" class="seg-item" data-m="daily">每日挑战</button>
+              </div>
+            </div>
+            <p class="muted small" id="chSetupNote">标准：60 秒，容差 ±1.05 天起</p>
+            <p class="muted small" id="chDailyState"></p>
+          </div>
+
           <div class="ch-ov-facts" id="chOvFacts" hidden></div>
           <p class="muted" id="chOvHint"></p>
           <button type="button" class="primary wide" id="chStart">开始挑战</button>
           <button type="button" class="ghost wide" id="chShareScore" hidden>分享成绩</button>
+          <button type="button" class="ghost wide" id="btnAch">看看成就</button>
+        </div>
+      </div>
+
+      <div class="ch-overlay" id="achOverlay" hidden>
+        <div class="ch-overlay-card">
+          <h3>成就</h3>
+          <div class="ach-list" id="achList"></div>
+          <button type="button" class="ghost wide" id="btnAchClose">关闭</button>
         </div>
       </div>
     </section>

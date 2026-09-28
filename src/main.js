@@ -20,7 +20,11 @@ import { drawMooncake, drawMoon2D } from './mooncake.js';
 import { buildCard } from './card.js';
 import { detectByIP, requestPrecise, DEFAULT_LOC } from './geo.js';
 import * as toy from './toy.js';
-import { createChallenge } from './challenge.js';
+import { createChallenge, DIFFICULTIES } from './challenge.js';
+import * as audio from './audio.js';
+import { dailySeed, dayKey, nextStreak, evaluateAchievements, ACHIEVEMENTS, achInfo } from './progress.js';
+import { loreFor } from './lore.js';
+import { renderCreator } from './creator.js';
 
 const SYNODIC = 29.530588;
 
@@ -581,6 +585,9 @@ const VIEWS = ['moon', 'challenge', 'rank'];
 let activeView = 'moon';
 let ch = null; // 挑战实例
 let rankPeriod = 'all';
+let chDifficulty = 'normal';
+let chMode = 'endless'; // endless | daily
+let tickSec = -1; // 读秒去重，避免同一秒重复响
 
 const escapeHtml = (s) =>
   String(s == null ? '' : s).replace(
@@ -628,13 +635,38 @@ function initChallenge() {
       $('chScore').textContent = String(s.score);
       $('chCombo').textContent = String(s.combo);
       $('chRound').textContent = String(s.round);
-      $('chBar').style.width = Math.max(0, Math.min(100, (s.timeLeft / 60) * 100)) + '%';
+      $('chBar').style.width = Math.max(0, Math.min(100, (s.timeLeft / (s.duration || 60)) * 100)) + '%';
       $('chTol').textContent = `容差 ±${s.tolerance.toFixed(2)} 天`;
+
+      // 最后 5 秒读秒（同一秒只响一次）
+      if (s.phase === 'playing') {
+        const n = Math.ceil(s.timeLeft);
+        if (n >= 1 && n <= 5 && n !== tickSec) {
+          tickSec = n;
+          audio.sfx.tick(n <= 3);
+        }
+      }
     },
     onChange: (s) => {
       $('chGo').disabled = s.phase !== 'playing';
     },
-    onFinish: (result) => finishChallenge(result),
+    onJudge: (r) => {
+      if (r.tier === 'miss') audio.sfx.miss();
+      else {
+        audio.sfx.hit(r.tier);
+        audio.sfx.combo(r.combo || 0);
+      }
+      // 揭晓时补一条这个月相的科普，答完顺手学点东西
+      const lore = loreFor(r.target ? r.target.name : '');
+      if (lore) {
+        $('chLore').textContent = lore;
+        $('chLore').hidden = false;
+      }
+    },
+    onFinish: (result) => {
+      audio.sfx.finish();
+      finishChallenge(result);
+    },
   });
 
   $('chSlider').addEventListener('input', () => {
@@ -642,11 +674,17 @@ function initChallenge() {
   });
   $('chGo').addEventListener('click', () => ch.confirm());
 
+  // 开始：音频必须在用户手势里解锁，否则 AudioContext 一直是 suspended，后面怎么调都不出声
   $('chStart').addEventListener('click', () => {
+    audio.unlock();
+    audio.sfx.click();
+    tickSec = -1;
+    ch.configure({ mode: chMode, difficulty: chDifficulty, seed: dailySeed() });
     $('chOverlay').hidden = true;
     $('chOvFacts').hidden = true;
     $('chOvHint').textContent = '';
     $('chShareScore').hidden = true;
+    $('chLore').hidden = true;
     $('chSlider').value = '14.77';
     ch.start();
   });
@@ -659,6 +697,79 @@ function initChallenge() {
       btn.textContent = '分享成绩';
     }, 1800);
   });
+
+  initChallengeSetup();
+}
+
+// 难度 / 模式 / 静音 / 成就面板
+function initChallengeSetup() {
+  const segPick = (box, key, fn) => {
+    document.querySelectorAll(box + ' .seg-item').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll(box + ' .seg-item').forEach((x) => x.classList.toggle('on', x === b));
+        fn(b.dataset[key]);
+        audio.sfx.click();
+      });
+    });
+  };
+  segPick('#chDiff', 'd', (v) => {
+    chDifficulty = v;
+    updateSetupNote();
+  });
+  segPick('#chMode', 'm', (v) => {
+    chMode = v;
+    updateDailyState();
+  });
+
+  updateSetupNote();
+  updateDailyState();
+
+  $('btnMute').addEventListener('click', async () => {
+    const next = !audio.isMuted();
+    audio.setMuted(next);
+    $('btnMute').textContent = next ? '音效 关' : '音效 开';
+    audio.sfx.click();
+    await toy.patchSave({ muted: next });
+  });
+
+  $('btnAch').addEventListener('click', async () => {
+    renderAchievements(await toy.loadSave());
+    $('achOverlay').hidden = false;
+  });
+  $('btnAchClose').addEventListener('click', () => {
+    $('achOverlay').hidden = true;
+    audio.sfx.click();
+  });
+}
+
+function updateSetupNote() {
+  const d = DIFFICULTIES[chDifficulty] || DIFFICULTIES.normal;
+  $('chSetupNote').textContent = `${d.label}：${d.time} 秒，容差 ±${d.tol.toFixed(2)} 天起`;
+}
+
+async function updateDailyState() {
+  if (chMode !== 'daily') {
+    $('chDailyState').textContent = '';
+    return;
+  }
+  const save = await toy.loadSave();
+  $('chDailyState').textContent =
+    Number(save.lastDailyDay) === dayKey()
+      ? `今天已完成：${save.lastDailyScore || 0} 分（每日挑战每天只记一次成绩）`
+      : '今日一题：同一天所有人拿到同一套题，更适合认真打一次';
+}
+
+function renderAchievements(save) {
+  const owned = new Set(save.achievements || []);
+  $('achList').innerHTML = ACHIEVEMENTS.map((a) => {
+    const got = owned.has(a.id);
+    return `
+      <div class="ach-item${got ? ' got' : ''}">
+        <div class="ach-badge">${got ? '✓' : '·'}</div>
+        <div class="ach-text"><b>${escapeHtml(a.name)}</b><span>${escapeHtml(a.desc)}</span></div>
+      </div>`;
+  }).join('');
+  $('btnAch').textContent = `成就 ${owned.size}/${ACHIEVEMENTS.length}`;
 }
 
 async function finishChallenge(result) {
@@ -688,16 +799,35 @@ async function finishChallenge(result) {
   });
   updateBestNote();
 
+  // 每日挑战：每天只记一次成绩，并维护连续打卡天数
+  const isDaily = result.mode === 'daily';
+  let streak = Number(save.dailyStreak || 0);
+  if (isDaily && Number(save.lastDailyDay) !== dayKey()) {
+    streak = nextStreak(save, new Date()).streak;
+    await toy.patchSave({ lastDailyDay: dayKey(), lastDailyScore: result.score, dailyStreak: streak });
+  }
+
+  // 成就判定（纯函数，只告诉这一局新解锁了什么）
+  const after = await toy.loadSave();
+  const ach = evaluateAchievements(after, result, { daily: isDaily, streak });
+  if (ach.gained.length) {
+    await toy.patchSave({ achievements: ach.list });
+    audio.sfx.achievement();
+  }
+  renderAchievements(await toy.loadSave());
+
   // 提交排行榜（只增不减且幂等，一局提交一次就够）
   const hint = $('chOvHint');
   const submitted = await toy.submitScore(1, result.score);
-  if (submitted) {
-    hint.textContent = `已提交 · 你的历史最高 ${submitted.score} 分`;
-  } else if (await toy.can('submitScore')) {
-    hint.textContent = '提交失败：可能需要登录，或正好撞上限流，过一会儿再试。';
-  } else {
-    hint.textContent = '当前环境没有排行榜能力，成绩已存在本机。';
+  const parts = [];
+  if (submitted) parts.push(`已提交 · 历史最高 ${submitted.score} 分`);
+  else if (await toy.can('submitScore')) parts.push('提交失败：可能需要登录，或正好撞上限流，过一会儿再试');
+  else parts.push('当前环境没有排行榜能力，成绩已存在本机');
+  if (ach.gained.length) {
+    parts.push(`新解锁：${ach.gained.map((id) => (achInfo(id) || {}).name || id).join('、')}`);
   }
+  if (isDaily && streak > 1) parts.push(`连续打卡 ${streak} 天`);
+  hint.textContent = parts.join('　·　');
 
   $('chOverlay').hidden = false;
   $('chStart').textContent = '再来一局';
@@ -852,11 +982,25 @@ async function initEnvNote() {
 
 async function initToy() {
   const ok = await toy.ready();
+  let save = {};
   if (ok) {
-    const save = await toy.loadSave();
+    save = await toy.loadSave();
     state.best = save.challengeBest || 0;
   }
   updateBestNote();
+
+  // 音效默认跟随存档（用户上次关了就还是关的）
+  audio.setMuted(!!save.muted);
+  $('btnMute').textContent = save.muted ? '音效 关' : '音效 开';
+  renderAchievements(save);
+
+  // 作者卡片：Toy 独有能力，其他环境会自动隐藏
+  try {
+    await renderCreator($('creatorCard'));
+  } catch {
+    $('creatorCard').hidden = true;
+  }
+
   await initImmersive();
   await initEnvNote();
   // 页面被切走时把还没推的存档送上去

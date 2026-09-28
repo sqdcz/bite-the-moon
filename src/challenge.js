@@ -13,21 +13,26 @@
 //   · 形状走 shape.js，与 3D 版同一套几何，玩家看到的缺口就是判定的依据。
 
 import { ageGap, ageToFraction, phaseName, PHASE_TARGETS, mooncakePath } from './shape.js';
+import { seededRandom } from './rng.js';
 
-const TOTAL_TIME = 60;      // 单局时长（秒）
-const TIME_BONUS = 1.5;     // 命中奖励时间
-const TIME_PENALTY = 2;     // 未命中罚时
-const REVEAL_MS = 1000;     // 揭晓停顿
-const TAIL_MS = 1600;       // 结束后停留展示
-const HIT_FLOOR = 1.05;     // 起始容差（天，环上距离）
-const HIT_MIN = 0.55;       // 最小容差
+const TIME_BONUS = 1.5; // 命中奖励时间
+const TIME_PENALTY = 2; // 未命中罚时
+const REVEAL_MS = 1000; // 揭晓停顿
+const TAIL_MS = 1600; // 结束后停留展示
+
+// 三档难度：单局时长、起始容差（天）、容差下限、每轮收紧幅度
+export const DIFFICULTIES = {
+  easy: { label: '轻松', time: 75, tol: 1.35, tolMin: 0.85, decay: 0.03 },
+  normal: { label: '标准', time: 60, tol: 1.05, tolMin: 0.55, decay: 0.038 },
+  hard: { label: '大师', time: 45, tol: 0.78, tolMin: 0.38, decay: 0.03 },
+};
 
 export function createChallenge(canvas, hooks = {}) {
   const ctx = canvas.getContext('2d');
 
   const state = {
     phase: 'idle', // idle | playing | reveal | over
-    timeLeft: TOTAL_TIME,
+    timeLeft: DIFFICULTIES.normal.time,
     score: 0,
     combo: 0,
     bestCombo: 0,
@@ -38,7 +43,13 @@ export function createChallenge(canvas, hooks = {}) {
     last: null, // { tier, label, gained, gap }
     revealUntil: 0,
     overAt: 0,
+    mode: 'endless', // endless | daily
+    difficulty: 'normal',
+    perfects: 0,
   };
+  const diff = () => DIFFICULTIES[state.difficulty] || DIFFICULTIES.normal;
+  // 每日挑战时换成定种子版本，见 configure()
+  let rnd = Math.random;
 
   let raf = 0;
   let prev = 0;
@@ -62,15 +73,16 @@ export function createChallenge(canvas, hooks = {}) {
 
   // ---------------------------------------------------------------- 规则
   function tolerance() {
-    return Math.max(HIT_MIN, HIT_FLOOR - state.round * 0.038);
+    const d = diff();
+    return Math.max(d.tolMin, d.tol - state.round * d.decay);
   }
 
   function pickTarget() {
     let t = state.target;
     // 避免连着出同一个，但也别排得太死板（20% 概率允许重复）
     for (let i = 0; i < 8; i++) {
-      const c = PHASE_TARGETS[Math.floor(Math.random() * PHASE_TARGETS.length)];
-      if (!state.target || c.name !== state.target.name || Math.random() < 0.2) {
+      const c = PHASE_TARGETS[Math.floor(rnd() * PHASE_TARGETS.length)];
+      if (!state.target || c.name !== state.target.name || rnd() < 0.2) {
         t = c;
         break;
       }
@@ -81,12 +93,13 @@ export function createChallenge(canvas, hooks = {}) {
   // ---------------------------------------------------------------- 流程
   function start() {
     state.phase = 'playing';
-    state.timeLeft = TOTAL_TIME;
+    state.timeLeft = diff().time;
     state.score = 0;
     state.combo = 0;
     state.bestCombo = 0;
     state.round = 0;
     state.hits = 0;
+    state.perfects = 0;
     state.last = null;
     state.target = pickTarget();
     // 开局把玩家摆在离目标最远的地方，避免一上来就蒙对
@@ -139,13 +152,16 @@ export function createChallenge(canvas, hooks = {}) {
       state.combo += 1;
       state.hits += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
-      state.timeLeft = Math.min(TOTAL_TIME, state.timeLeft + TIME_BONUS);
+      state.timeLeft = Math.min(diff().time, state.timeLeft + TIME_BONUS);
     }
+    if (tier === 'perfect') state.perfects += 1;
     state.score += gained;
     state.last = { tier, label, gained, gap, combo: state.combo, mult };
     state.phase = 'reveal';
     state.revealUntil = performance.now() + REVEAL_MS;
     hooks.onChange && hooks.onChange(snapshot());
+    // 单独给一次判定通知：音效与科普卡挂在它上面，比 onChange 语义更准
+    hooks.onJudge && hooks.onJudge({ tier, label, gained, target: state.target, gap, combo: state.combo });
     if (state.timeLeft <= 0) finish();
 
     return state.last;
@@ -160,6 +176,9 @@ export function createChallenge(canvas, hooks = {}) {
       hits: state.hits,
       bestCombo: state.bestCombo,
       accuracy: state.round ? state.hits / state.round : 0,
+      perfects: state.perfects,
+      mode: state.mode,
+      difficulty: state.difficulty,
     };
     hooks.onChange && hooks.onChange(snapshot());
     hooks.onFinish && hooks.onFinish(result);
@@ -188,7 +207,21 @@ export function createChallenge(canvas, hooks = {}) {
       target: state.target ? state.target.name : '',
       last: state.last,
       tolerance: tolerance(),
+      duration: diff().time,
+      mode: state.mode,
+      difficulty: state.difficulty,
     };
+  }
+
+  /**
+   * 开局前设定模式与难度。
+   * mode='daily' 时务必传 seed —— 不传就退回 Math.random，
+   * 那就不是"每天同一套题"了，排行榜的公平性也就没了。
+   */
+  function configure(o = {}) {
+    if (o.mode === 'daily' || o.mode === 'endless') state.mode = o.mode;
+    if (DIFFICULTIES[o.difficulty]) state.difficulty = o.difficulty;
+    rnd = state.mode === 'daily' && o.seed != null ? seededRandom(o.seed) : Math.random;
   }
 
   // ---------------------------------------------------------------- 主循环
@@ -355,6 +388,7 @@ export function createChallenge(canvas, hooks = {}) {
     start,
     stop,
     confirm,
+    configure,
     setGuess,
     snapshot,
     resize: fit,

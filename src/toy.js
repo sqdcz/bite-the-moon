@@ -330,6 +330,49 @@ export async function setContainerMode(mode) {
   }
 }
 
+// ---------------------------------------------------------------- 作者与作品
+// 这几个是 Toy 生态里最有价值的能力：能把玩 Toy 的人直接带到作者的视频上。
+// 全部只读，不触发用户数据确认弹窗，失败一律返回 null。
+export async function authorProfile() {
+  if (!(await can('getAuthorProfile'))) return null;
+  try {
+    return await withRetry(() => raw().getAuthorProfile());
+  } catch {
+    return null;
+  }
+}
+
+/** 批量取作者视频的公开信息（1~50 项，只传 aid 或 bvid 之一） */
+export async function authorVideos(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  if (!(await can('getAuthorVideos'))) return null;
+  try {
+    return await withRetry(() => raw().getAuthorVideos({ videos: list.slice(0, 50) }));
+  } catch {
+    return null;
+  }
+}
+
+/** 当前访问者与作者的关系：关注、老粉、粉丝勋章、包月充电 */
+export async function authorRelation() {
+  if (!(await can('getAuthorRelation'))) return null;
+  try {
+    return await withRetry(() => raw().getAuthorRelation());
+  } catch {
+    return null;
+  }
+}
+
+/** 当前访问者对若干视频的点赞 / 投币 / 收藏状态 */
+export async function videoActions(aids) {
+  if (!(await can('getVideoUserActions'))) return null;
+  try {
+    return await withRetry(() => raw().getVideoUserActions({ aids: aids.slice(0, 50) }));
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------- 跳转
 export async function navigate(type, id, extra) {
   if (!(await can('navigate'))) return false;
